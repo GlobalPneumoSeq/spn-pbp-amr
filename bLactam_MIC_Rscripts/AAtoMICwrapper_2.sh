@@ -30,6 +30,9 @@ else
   exit 1
 fi
 
+export SPN_PBP_DATA_DIR="$data_dir"
+export SPN_PBP_MODEL_DIR="${data_dir}/newDB"
+
 #
 faaDir=${AAseqDir}"/Sample_AAtoMIC/faa/"
 rm -rf "${faaDir}"
@@ -48,10 +51,6 @@ rm -rf   "${predir}"
 mkdir -p "${predir}"
 cp ./Sample_PBP_AA_table.csv "${predir}"
 
-#dbdir="/scicomp/groups/OID/NCIRD/DBD/RDB/Strep_Lab/External/share/PBP_AA_to_MIC/currentDB"
-#dbdir="/scicomp/groups/OID/NCIRD/DBD/RDB/Strep_Lab/External/share/PBP_AA_to_MIC/newDB"
-#cp $dbdir"/"*  $predir
-
 cd "${predir}" || exit
 
 scr1="${data_dir}/AAtable_To_MIC_MM_RF_EN_2.R"
@@ -62,6 +61,4 @@ cp Sample_PBPtype_MIC2_Prediction.csv "${AAseqDir}"
 
 echoerr "MIC pridiction results are in file:"
 echoerr "$AAseqDir""/Sample_PBPtype_MIC2_Prediction.csv"
-
-
 

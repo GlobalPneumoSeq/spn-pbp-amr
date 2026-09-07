@@ -6,7 +6,7 @@ x1="0"
 if [ -d "$1" ]; then
 if [ -s "$1""/EXTRACT_1A-S2_target.fasta" ]; then
 if [ -s "$1""/EXTRACT_2B-S2_target.fasta" ]; then
-if [ -s "$1""/EXTRACT_2B-S2_target.fasta" ]; then
+if [ -s "$1""/EXTRACT_2X-S2_target.fasta" ]; then
 x1="1"
 fi
 fi
@@ -22,7 +22,7 @@ else
   echoerr ""
   echoerr "data_dir is a directory that must conatin 3 files with the following exact names, respectively:"
   echoerr "EXTRACT_1A-S2_target.fasta"
-  echoerr "EXTRACT_2B-S2_target.fasta"
+  echoerr "EXTRACT_2X-S2_target.fasta"
   echoerr "EXTRACT_2B-S2_target.fasta"
   echoerr ""
   echoerr "See README.txt for details"

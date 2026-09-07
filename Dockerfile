@@ -1,86 +1,56 @@
-FROM ubuntu:18.04
+FROM r-base:4.4.2@sha256:fe9b29520eeb5292d814b0958783c0ddfcdab37402967a3e67307604354f98d7
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG BLAST_VERSION=2.16.0
+ARG BLAST_MD5=48f66c9e01ea5136e381b2bf6fc62036
+ARG IMAGE_VERSION=0.2.0
+ARG MODEL_DATA_VERSION=2023-01-12
 
-RUN apt update \
-      && apt install -y -q apt-transport-https software-properties-common \
-      && apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9 \
-      && apt update \
-      && add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu bionic-cran35/' \
-      && apt install -y -q \
-        curl \
-        perl \
-        r-base \
-        gcc \
+LABEL org.opencontainers.image.title="Standalone pneumococcal beta-lactam MIC predictor" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      org.opencontainers.image.source="https://github.com/pathogenwatch/spn-resistance-pbp" \
+      org.opencontainers.image.description="Assembly FASTA PBP1A/PBP2B/PBP2X Random Forest predictor" \
+      org.pathogenwatch.model-data-version="${MODEL_DATA_VERSION}" \
+      org.pathogenwatch.blast-version="${BLAST_VERSION}" \
+      org.pathogenwatch.blast-md5="${BLAST_MD5}"
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+        bash \
         build-essential \
-        libx11-dev \
-      && rm -rf /var/lib/apt/lists/*
+        ca-certificates \
+        clustalo \
+        curl \
+        libcurl4-openssl-dev \
+        libjson-perl \
+        libssl-dev \
+        libxml2-dev \
+        perl \
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install BLAST
-RUN  mkdir -p /tmp/blast \
-      && mkdir /opt/blast \
-      && curl ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.9.0/ncbi-blast-2.9.0+-x64-linux.tar.gz \
-      | tar -zxC /tmp/blast --strip-components=1 \
-      && cd /tmp/blast/bin \
-      && mv blastn makeblastdb blastp /opt/blast/ \
-      && cd .. \
-      && rm -rf /tmp/blast
+RUN mkdir -p /tmp/blast /opt/blast \
+    && curl --fail --silent --show-error --location --retry 3 \
+        "https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/${BLAST_VERSION}/ncbi-blast-${BLAST_VERSION}+-x64-linux.tar.gz" \
+        --output /tmp/ncbi-blast.tar.gz \
+    && printf '%s  %s\n' "${BLAST_MD5}" /tmp/ncbi-blast.tar.gz | md5sum --check - \
+    && tar --extract --gzip --file /tmp/ncbi-blast.tar.gz --directory /tmp/blast --strip-components=1 \
+    && install --mode=0755 /tmp/blast/bin/blastn /opt/blast/blastn \
+    && install --mode=0755 /tmp/blast/bin/blastp /opt/blast/blastp \
+    && install --mode=0755 /tmp/blast/bin/makeblastdb /opt/blast/makeblastdb \
+    && rm -rf /tmp/blast /tmp/ncbi-blast.tar.gz
 
-ENV PATH /opt/blast:$PATH
+ENV PATH="/opt/blast:/predictor:${PATH}"
 
-# Install BEDTools
-RUN curl -L -O -J https://github.com/arq5x/bedtools2/releases/download/v2.28.0/bedtools \
-      && chmod +x bedtools \
-      && mv bedtools /usr/local/bin/
+COPY install_r_dependencies.R /tmp/install_r_dependencies.R
+RUN Rscript /tmp/install_r_dependencies.R \
+    && rm -f /tmp/install_r_dependencies.R
 
-# Install R dependencies
-COPY install_r_dependencies.R /install_r_dependencies.R
-
-RUN Rscript /install_r_dependencies.R \
-      && rm -f /install_r_dependencies.R
-
-RUN curl -L -O -J https://cran.r-project.org/src/contrib/Archive/randomForest/randomForest_4.6-14.tar.gz \
-      && R CMD INSTALL randomForest_4.6-14.tar.gz \
-      && rm -rf randomForest_4.6-14.tar.gz
-
-# Install Clustal Omega
-RUN curl -L -O -J http://www.clustal.org/omega/clustalo-1.2.4-Ubuntu-x86_64 \
-       && mv clustalo-1.2.4-Ubuntu-x86_64 clustalo \
-       && chmod +x clustalo \
-       && mv clustalo /usr/local/bin/
-
-# Install CPAN dependencies
-RUN cpan App::cpanminus \
-      && cpan JSON
-
-# Copy in scripts & libs
-RUN mkdir -p /predictor/SPN_Reference_DB
-
-RUN mkdir -p /predictor/bLactam_MIC_Rscripts
-
+WORKDIR /predictor
 COPY SPN_Reference_DB/ /predictor/SPN_Reference_DB/
+COPY bLactam_MIC_Rscripts/ /predictor/bLactam_MIC_Rscripts/
+COPY ExtractGene.pl PBP-Gene_Typer.pl pw_wrapper.sh to_json.pl transeq.pl entrypoint.sh /predictor/
 
-COPY bLactam_MIC_Rscripts /predictor/bLactam_MIC_Rscripts/
+RUN chmod 0755 /predictor/*.pl /predictor/*.sh
 
-COPY ExtractGene.pl /predictor/
-
-COPY PBP-Gene_Typer.pl /predictor/
-
-COPY pw_wrapper.sh /predictor/
-
-COPY to_json.pl /predictor/
-
-COPY transeq.pl /predictor/
-
-COPY entrypoint.sh /predictor/
-
-RUN cd /predictor \
-      && chmod +x *.sh \
-      && chmod +x *.pl
-
-ENV PATH /predictor:$PATH
-
-WORKDIR /predictor/
-
-#ENTRYPOINT ["/bin/bash"]
 ENTRYPOINT ["/predictor/entrypoint.sh"]

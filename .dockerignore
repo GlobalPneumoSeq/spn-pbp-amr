@@ -108,3 +108,11 @@ fabric.properties
 
 test_utils/
 test_out/
+
+# Regression data and local development files are not runtime image inputs.
+.git/
+.idea/
+test/
+tests/
+IMPLEMENTATION_PLAN.md
+foo

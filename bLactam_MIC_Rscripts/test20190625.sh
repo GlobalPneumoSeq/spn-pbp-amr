@@ -1,9 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-data_dir=/scicomp/groups/OID/NCIRD/DBD/RDB/Strep_Lab/SPN_Typing_Output/\
-18-B-429_Illumina-MiSeq-M03220/190621_M03220_0049_000000000-CHCYF_test/\
-SPN_Typing_Output/20192226-S-ABC/ 
+if [[ $# != 1 ]]; then
+    printf 'usage: %s SAMPLE_DIRECTORY\n' "$0" >&2
+    exit 2
+fi
 
-cd /scicomp/groups/OID/NCIRD/DBD/RDB/Strep_Lab/External/SPN_Scripts_Reference/bLactam_MIC_Rscripts || exit
-
-bash PBP_AA_sampledir_to_MIC_20180710.sh $data_dir
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+bash "${script_dir}/PBP_AA_sampledir_to_MIC_20180710.sh" "$1" "$script_dir"
