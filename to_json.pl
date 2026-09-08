@@ -6,11 +6,11 @@ use JSON;
 my %data;
 print STDERR "Parsing output to JSON.";
 
-my @fields;
-while (my $line = <>) {
-    next unless $line =~ /\S/;
-    @fields = split /\s+/, $line;
-}
+my $line = <>;
+die "Predictor output did not contain a result row\n"
+    unless defined $line && $line =~ /\S/;
+die "Predictor output contained more than one result row\n" if <>;
+my @fields = split /\s+/, $line;
 
 die "Predictor output did not contain a complete result row\n"
     unless @fields >= 25;

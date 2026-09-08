@@ -5,12 +5,9 @@
 PBP_AA_TO_MIC2<- function(cwd){
   data_dir=Sys.getenv("SPN_PBP_DATA_DIR", unset="")
   if (!nzchar(data_dir)) {
-    data_dir=dirname(dirname(cwd))
+    stop("SPN_PBP_DATA_DIR must name the predictor data directory")
   }
-  dbdir=Sys.getenv("SPN_PBP_MODEL_DIR", unset="")
-  if (!nzchar(dbdir)) {
-    dbdir=file.path(dirname(dirname(cwd)), "newDB")
-  }
+  dbdir=file.path(data_dir, "newDB")
   if (!dir.exists(dbdir)) {
     stop(paste("Model directory does not exist:", dbdir))
   }
@@ -131,7 +128,6 @@ PBP_AA_TO_MIC2<- function(cwd){
   m3=m2$sampleID
   for (j1 in 1:6)
   {
-    if (exists("fit1")) rm(fit1)
     load(RFdbMIC[j1])
     m3=cbind(m3, round(2^predict(fit1, newdata = m2.2), 2))
   }
@@ -147,7 +143,6 @@ PBP_AA_TO_MIC2<- function(cwd){
   m3=m2$sampleID
   for (j1 in 1:6)
   {
-    if (exists("fit1")) rm(fit1)
     load(RFdbBK1[j1])
     m3=cbind(m3, round(predict(fit1, newdata = m2.2, type="prob"), 3)[, 2])
   }

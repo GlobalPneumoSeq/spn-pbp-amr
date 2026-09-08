@@ -1,0 +1,1 @@
+{"croMic":"<= 0.5","ctxMic":"= 0.12","penMeningitis":"R","ctxMeningitis":"S","pbp1a":"0","penMic":"= 0.25","pbp2b":"1","croMeningitis":"S","memMic":"<= 0.06","mem":"S","amxMic":"= 0.06","penNonMeningitis":"S","amx":"S","pbp2x":"1","cxmMic":"<= 0.5","ctxNonMeningitis":"S","cxm":"S","croNonMeningitis":"S"}

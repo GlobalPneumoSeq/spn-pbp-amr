@@ -1,0 +1,67 @@
+{
+  "source": "Representative public assemblies",
+  "retrieved": "2026-09-07",
+  "api": {
+    "search": "/api/search/genomes",
+    "folder_id": 1,
+    "organism_id": "1313",
+    "owner": "Shared",
+    "project_id": 1
+  },
+  "fixtures": [
+    {
+      "accession": "SAMN20398278",
+      "genome_id": 89631,
+      "uuid": "wt5EiEBccAWnPjyM3Xup3F",
+      "run": "SRR15247292",
+      "study": "PRJNA284954",
+      "country": "US",
+      "collection_year": 2019,
+      "contigs": 46,
+      "length": 2050449,
+      "assembly_sha256": "86c9f1827790ae5bac011810bf08a517d2a5ab73c7e7b138abd3e608b65727be",
+      "current_assignments": {
+        "mlst": "62",
+        "serotype": "11A"
+      },
+      "expected_pbp_status": "2:6:0",
+      "expected_json": "expected-SAMN20398278.json"
+    },
+    {
+      "accession": "SAMN20409264",
+      "genome_id": 89632,
+      "uuid": "5pj4iy1DXWZ19eQEtvFSJd",
+      "run": "SRR15250577",
+      "study": "PRJNA284954",
+      "country": "US",
+      "collection_year": 2019,
+      "contigs": 30,
+      "length": 2130192,
+      "assembly_sha256": "5cafbe810264bcdb920df266be1a0ae64869d2e3a3ce8d975d1267eceb944bd4",
+      "current_assignments": {
+        "mlst": "9380",
+        "serotype": "23B"
+      },
+      "expected_pbp_status": "0:1:1",
+      "expected_json": "expected-SAMN20409264.json"
+    },
+    {
+      "accession": "SAMN33825264",
+      "genome_id": 89633,
+      "uuid": "ve3DaNtFa8yDnDqAo5GZZg",
+      "run": "SRR23912902",
+      "study": "PRJNA946631",
+      "country": "US",
+      "collection_year": 2020,
+      "contigs": 31,
+      "length": 2118305,
+      "assembly_sha256": "0ea97e09d13f3e67caff235bd90a386feee856dd6f42018d5188d3ef20b2fd87",
+      "current_assignments": {
+        "mlst": "1373",
+        "serotype": "23B"
+      },
+      "expected_pbp_status": "0:1:1",
+      "expected_json": "expected-SAMN33825264.json"
+    }
+  ]
+}

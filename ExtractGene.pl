@@ -199,13 +199,15 @@ sub extractAssemblyInterval {
         unless defined $contig;
 
     my $contig_length = length($contig);
-    return '' if $start < 0 || $end < $start || $start >= $contig_length;
-    $end = $contig_length if $end > $contig_length;
+    # bedtools getfasta skips, rather than truncates, an interval outside the
+    # contig. Keep that behaviour so partial boundary hits remain NF.
+    return '' if $start < 0 || $end < $start || $start >= $contig_length || $end > $contig_length;
     my $sequence = substr($contig, $start, $end - $start);
     $sequence = reverseComplement($sequence) if $reverse;
 
     my $header = ">$contig_id:$start-$end";
-    return "$header\n$sequence\n";
+    # The historical reverse-strand bedtools path returned no final newline.
+    return $reverse ? "$header\n$sequence" : "$header\n$sequence\n";
 }
 
 sub extractTargetFragment {
@@ -248,6 +250,7 @@ sub extractTargetFragment {
 
 }
 
+sub main {
 my ($help, $fasta, $query, $outDir, $length_threshold, $identity_threshold) = checkOptions(@ARGV);
 
 my $assembly_records = readAssemblyFasta($fasta);
@@ -291,3 +294,7 @@ foreach my $query_name (@query_names) {
     close $exOUT;
     print STDERR "Wrote $extract_out";
 }
+
+}
+
+main() unless caller;

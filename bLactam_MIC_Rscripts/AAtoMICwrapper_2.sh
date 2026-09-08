@@ -31,7 +31,6 @@ else
 fi
 
 export SPN_PBP_DATA_DIR="$data_dir"
-export SPN_PBP_MODEL_DIR="${data_dir}/newDB"
 
 #
 faaDir=${AAseqDir}"/Sample_AAtoMIC/faa/"
@@ -61,4 +60,3 @@ cp Sample_PBPtype_MIC2_Prediction.csv "${AAseqDir}"
 
 echoerr "MIC pridiction results are in file:"
 echoerr "$AAseqDir""/Sample_PBPtype_MIC2_Prediction.csv"
-

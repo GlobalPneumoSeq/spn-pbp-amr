@@ -1,32 +1,27 @@
-FROM r-base:4.4.2@sha256:fe9b29520eeb5292d814b0958783c0ddfcdab37402967a3e67307604354f98d7
+FROM r-base:4.4.2@sha256:fe9b29520eeb5292d814b0958783c0ddfcdab37402967a3e67307604354f98d7 AS r-packages
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        libcurl4-openssl-dev \
+        libssl-dev \
+        libxml2-dev \
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY install_r_dependencies.R /tmp/install_r_dependencies.R
+RUN Rscript /tmp/install_r_dependencies.R \
+    && rm -f /tmp/install_r_dependencies.R
+
+FROM r-base:4.4.2@sha256:fe9b29520eeb5292d814b0958783c0ddfcdab37402967a3e67307604354f98d7 AS blast-tools
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG BLAST_VERSION=2.16.0
 ARG BLAST_MD5=48f66c9e01ea5136e381b2bf6fc62036
-ARG IMAGE_VERSION=0.2.0
-ARG MODEL_DATA_VERSION=2023-01-12
-
-LABEL org.opencontainers.image.title="Standalone pneumococcal beta-lactam MIC predictor" \
-      org.opencontainers.image.version="${IMAGE_VERSION}" \
-      org.opencontainers.image.source="https://github.com/pathogenwatch/spn-resistance-pbp" \
-      org.opencontainers.image.description="Assembly FASTA PBP1A/PBP2B/PBP2X Random Forest predictor" \
-      org.pathogenwatch.model-data-version="${MODEL_DATA_VERSION}" \
-      org.pathogenwatch.blast-version="${BLAST_VERSION}" \
-      org.pathogenwatch.blast-md5="${BLAST_MD5}"
 
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends \
-        bash \
-        build-essential \
-        ca-certificates \
-        clustalo \
-        curl \
-        libcurl4-openssl-dev \
-        libjson-perl \
-        libssl-dev \
-        libxml2-dev \
-        perl \
-        zlib1g-dev \
+    && apt-get install --yes --no-install-recommends ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /tmp/blast /opt/blast \
@@ -37,14 +32,27 @@ RUN mkdir -p /tmp/blast /opt/blast \
     && tar --extract --gzip --file /tmp/ncbi-blast.tar.gz --directory /tmp/blast --strip-components=1 \
     && install --mode=0755 /tmp/blast/bin/blastn /opt/blast/blastn \
     && install --mode=0755 /tmp/blast/bin/blastp /opt/blast/blastp \
-    && install --mode=0755 /tmp/blast/bin/makeblastdb /opt/blast/makeblastdb \
-    && rm -rf /tmp/blast /tmp/ncbi-blast.tar.gz
+    && install --mode=0755 /tmp/blast/bin/makeblastdb /opt/blast/makeblastdb
+
+FROM r-base:4.4.2@sha256:fe9b29520eeb5292d814b0958783c0ddfcdab37402967a3e67307604354f98d7
+
+ARG IMAGE_VERSION=0.2.0
+
+LABEL org.opencontainers.image.title="Standalone pneumococcal beta-lactam MIC predictor" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      org.opencontainers.image.source="https://github.com/pathogenwatch/spn-resistance-pbp" \
+      org.opencontainers.image.description="Assembly FASTA PBP1A/PBP2B/PBP2X Random Forest predictor"
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+        clustalo \
+        libjson-perl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=r-packages /usr/local/lib/R/site-library/ /usr/local/lib/R/site-library/
+COPY --from=blast-tools /opt/blast/ /opt/blast/
 
 ENV PATH="/opt/blast:/predictor:${PATH}"
-
-COPY install_r_dependencies.R /tmp/install_r_dependencies.R
-RUN Rscript /tmp/install_r_dependencies.R \
-    && rm -f /tmp/install_r_dependencies.R
 
 WORKDIR /predictor
 COPY SPN_Reference_DB/ /predictor/SPN_Reference_DB/

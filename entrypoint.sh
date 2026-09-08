@@ -13,18 +13,9 @@ if ! perl -ne '
     exit 2
 fi
 
-wrapper_output=$(mktemp /tmp/spn-pbp-output.XXXXXX)
-trap 'rm -f "$wrapper_output" /tmp/sequence.fa' EXIT
+trap 'rm -f /tmp/sequence.fa' EXIT
 
-if ! pw_wrapper.sh >"$wrapper_output"; then
+if ! pw_wrapper.sh | to_json.pl; then
     echo "ERROR: PBP prediction failed" >&2
     exit 1
 fi
-
-result_line=$(awk 'NF >= 25 { line = $0 } END { if (line) print line }' "$wrapper_output")
-if [[ -z "$result_line" ]]; then
-    echo "ERROR: predictor did not produce a complete result row" >&2
-    exit 1
-fi
-
-printf '%s\n' "$result_line" | to_json.pl
