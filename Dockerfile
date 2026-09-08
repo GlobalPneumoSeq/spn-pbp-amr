@@ -56,6 +56,12 @@ ENV PATH="/opt/blast:/predictor:${PATH}"
 
 WORKDIR /predictor
 COPY SPN_Reference_DB/ /predictor/SPN_Reference_DB/
+RUN for gene in 1A 2B 2X; do \
+        makeblastdb \
+            -in "/predictor/SPN_Reference_DB/SPN_bLactam_${gene}-DB.faa" \
+            -dbtype prot \
+            -out "/predictor/SPN_Reference_DB/Blast_bLactam_${gene}_prot_DB"; \
+    done
 COPY bLactam_MIC_Rscripts/ /predictor/bLactam_MIC_Rscripts/
 COPY ExtractGene.pl PBP-Gene_Typer.pl pw_wrapper.sh to_json.pl transeq.pl entrypoint.sh /predictor/
 

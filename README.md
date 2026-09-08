@@ -78,14 +78,16 @@ output.
 - BLAST+ 2.16.0 is verified against NCBI's published archive checksum, and
   Debian's `clustalo` package is installed at build time; the image performs
   no runtime downloads.
+- PBP allele FASTAs come from the
+  [`39ebc288` upstream database update](https://github.com/BenJamesMetcalf/Spn_Scripts_Reference/commit/39ebc2888f1c6166ca95022050bd53b4e2435768).
+  Their BLAST databases are generated during the image build with the pinned
+  BLAST+ version; generated index files are not versioned in this repository.
 - The current model/reference snapshot is not retrained or updated by this
   repository.
 - A missing PBP region is represented as `NF` in the JSON result rather than
   treating an otherwise valid assembly as invalid input. The corrected PBP2X
   extraction precondition now also rejects a missing 2X extract before MIC
   prediction, rather than proceeding with incomplete input.
-- Predictions are research software outputs. Validate suitability for the
-  intended surveillance or clinical context before use.
 
 Please credit the original authors of the
 [Spn_Scripts_Reference](https://github.com/BenJamesMetcalf/Spn_Scripts_Reference)
