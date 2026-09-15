@@ -31,12 +31,11 @@ PBP-Gene_Typer.pl -f "$assembly" -r "${allDB_dir}/MOD_bLactam_resistance.fasta" 
 
 ###Output the emm type/MLST/drug resistance data for this sample to it's results output file###
 tabl_out="TABLE_Isolate_Typing_results.txt"
-printf "predictor\t" >> "${tabl_out}"
 
 ###PBP_ID Output###
 pbpID=$(tail -n1 "TEMP_pbpID_Results.txt" | awk -F"\t" '{print $2}')
 IFS=: read -r pbp1a pbp2b pbp2x <<< "$pbpID"
-printf '%s\t%s\t%s\t%s\t' "$just_name" "$pbp1a" "$pbp2b" "$pbp2x" >> "$tabl_out"
+printf '%s\t%s\t%s\t%s\t' "predictor" "$pbp1a" "$pbp2b" "$pbp2x" >> "$tabl_out"
 
 if [[ "$pbpID" != *NF* ]] #&& [[ ! "$pbpID" =~ .*NEW.* ]]
 then
