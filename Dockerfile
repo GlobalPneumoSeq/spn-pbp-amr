@@ -34,7 +34,7 @@ RUN mkdir -p /tmp/blast /opt/blast \
     && install --mode=0755 /tmp/blast/bin/blastp /opt/blast/blastp \
     && install --mode=0755 /tmp/blast/bin/makeblastdb /opt/blast/makeblastdb
 
-FROM r-base:4.4.2@sha256:fe9b29520eeb5292d814b0958783c0ddfcdab37402967a3e67307604354f98d7
+FROM r-base:4.4.2@sha256:fe9b29520eeb5292d814b0958783c0ddfcdab37402967a3e67307604354f98d7 AS app
 
 ARG IMAGE_VERSION=0.2.0
 
@@ -76,7 +76,7 @@ ENV PATH /predictor/bLactam_MIC_Rscripts/:$PATH
 
 
 # new base for testing
-FROM app as test
+FROM app AS test
 
 RUN mkdir -p /test_data
 
