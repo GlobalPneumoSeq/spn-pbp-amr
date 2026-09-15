@@ -1,79 +1,69 @@
-FROM ubuntu:18.04 as app
+FROM r-base:4.4.2@sha256:fe9b29520eeb5292d814b0958783c0ddfcdab37402967a3e67307604354f98d7 AS r-packages
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        libcurl4-openssl-dev \
+        libssl-dev \
+        libxml2-dev \
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY install_r_dependencies.R /tmp/install_r_dependencies.R
+RUN Rscript /tmp/install_r_dependencies.R \
+    && rm -f /tmp/install_r_dependencies.R
+
+FROM r-base:4.4.2@sha256:fe9b29520eeb5292d814b0958783c0ddfcdab37402967a3e67307604354f98d7 AS blast-tools
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG BLAST_VERSION=2.16.0
+ARG BLAST_MD5=48f66c9e01ea5136e381b2bf6fc62036
 
-RUN mkdir ~/.gnupg && echo "disable-ipv6" >> ~/.gnupg/dirmngr.conf \
-      && apt update \
-      && apt install -y -q apt-transport-https software-properties-common \
-      && apt-key adv --homedir ~/.gnupg --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9 \
-      && apt update \
-      && add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu bionic-cran35/' \
-      && apt install -y -q \
-        curl \
-        perl \
-        r-base \
-        gcc \
-        build-essential \
-        libx11-dev \
-      && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install BLAST
-RUN  mkdir -p /tmp/blast \
-      && mkdir /opt/blast \
-      && curl ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.9.0/ncbi-blast-2.9.0+-x64-linux.tar.gz \
-      | tar -zxC /tmp/blast --strip-components=1 \
-      && cd /tmp/blast/bin \
-      && mv blastn makeblastdb blastp /opt/blast/ \
-      && cd .. \
-      && rm -rf /tmp/blast
+RUN mkdir -p /tmp/blast /opt/blast \
+    && curl --fail --silent --show-error --location --retry 3 \
+        "https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/${BLAST_VERSION}/ncbi-blast-${BLAST_VERSION}+-x64-linux.tar.gz" \
+        --output /tmp/ncbi-blast.tar.gz \
+    && printf '%s  %s\n' "${BLAST_MD5}" /tmp/ncbi-blast.tar.gz | md5sum --check - \
+    && tar --extract --gzip --file /tmp/ncbi-blast.tar.gz --directory /tmp/blast --strip-components=1 \
+    && install --mode=0755 /tmp/blast/bin/blastn /opt/blast/blastn \
+    && install --mode=0755 /tmp/blast/bin/blastp /opt/blast/blastp \
+    && install --mode=0755 /tmp/blast/bin/makeblastdb /opt/blast/makeblastdb
 
-ENV PATH /opt/blast:$PATH
+FROM r-base:4.4.2@sha256:fe9b29520eeb5292d814b0958783c0ddfcdab37402967a3e67307604354f98d7 AS app
 
-# Install BEDTools
-RUN curl -L -O -J https://github.com/arq5x/bedtools2/releases/download/v2.28.0/bedtools \
-      && chmod +x bedtools \
-      && mv bedtools /usr/local/bin/
+ARG IMAGE_VERSION=0.2.0
 
-# Install R dependencies
-COPY install_r_dependencies.R /install_r_dependencies.R
+LABEL org.opencontainers.image.title="Standalone pneumococcal beta-lactam MIC predictor" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      org.opencontainers.image.source="https://github.com/pathogenwatch/spn-resistance-pbp" \
+      org.opencontainers.image.description="Assembly FASTA PBP1A/PBP2B/PBP2X Random Forest predictor"
 
-RUN Rscript /install_r_dependencies.R \
-      && rm -f /install_r_dependencies.R
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+        clustalo \
+        libjson-perl \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN curl -L -O -J https://cran.r-project.org/src/contrib/Archive/randomForest/randomForest_4.6-14.tar.gz \
-      && R CMD INSTALL randomForest_4.6-14.tar.gz \
-      && rm -rf randomForest_4.6-14.tar.gz
+COPY --from=r-packages /usr/local/lib/R/site-library/ /usr/local/lib/R/site-library/
+COPY --from=blast-tools /opt/blast/ /opt/blast/
 
-# Install Clustal Omega
-RUN curl -L -O -J http://www.clustal.org/omega/clustalo-1.2.4-Ubuntu-x86_64 \
-       && mv clustalo-1.2.4-Ubuntu-x86_64 clustalo \
-       && chmod +x clustalo \
-       && mv clustalo /usr/local/bin/
+ENV PATH="/opt/blast:/predictor:${PATH}"
 
-# Install CPAN dependencies
-RUN cpan App::cpanminus \
-      && cpan JSON
-
-# Copy in scripts & libs
-RUN mkdir -p /predictor/SPN_Reference_DB
-
-RUN mkdir -p /predictor/bLactam_MIC_Rscripts
-
+WORKDIR /predictor
 COPY SPN_Reference_DB/ /predictor/SPN_Reference_DB/
-
-COPY bLactam_MIC_Rscripts /predictor/bLactam_MIC_Rscripts/
-
-COPY ExtractGene.pl /predictor/
-
-COPY PBP-Gene_Typer.pl /predictor/
-
-COPY pw_wrapper.sh /predictor/
-
-COPY to_json.pl /predictor/
-
-COPY transeq.pl /predictor/
-
-COPY spn_pbp_amr /predictor/
+RUN for gene in 1A 2B 2X; do \
+        makeblastdb \
+            -in "/predictor/SPN_Reference_DB/SPN_bLactam_${gene}-DB.faa" \
+            -dbtype prot \
+            -out "/predictor/SPN_Reference_DB/Blast_bLactam_${gene}_prot_DB"; \
+    done
+COPY bLactam_MIC_Rscripts/ /predictor/bLactam_MIC_Rscripts/
+COPY ExtractGene.pl PBP-Gene_Typer.pl pw_wrapper.sh to_json.pl transeq.pl spn_pbp_amr /predictor/
 
 RUN cd /predictor \
       && chmod +x *.sh \
@@ -86,7 +76,7 @@ ENV PATH /predictor/bLactam_MIC_Rscripts/:$PATH
 
 
 # new base for testing
-FROM app as test
+FROM app AS test
 
 RUN mkdir -p /test_data
 
