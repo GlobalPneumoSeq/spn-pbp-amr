@@ -159,13 +159,69 @@ sub extractIDsFromFasta {
     return \@query_names;
 }
 
+sub readAssemblyFasta {
+    my ($assembly_fasta) = @_;
+    open(my $assembly_fh, "<", $assembly_fasta)
+        or die "Could not open assembly FASTA '$assembly_fasta': $!";
+
+    my %records;
+    my $record_id;
+    while (my $line = <$assembly_fh>) {
+        chomp $line;
+        if ($line =~ /^>(\S+)/) {
+            $record_id = $1;
+            $records{$record_id} = "";
+        } elsif (defined $record_id) {
+            $line =~ s/\s+//g;
+            $records{$record_id} .= $line;
+        }
+    }
+    close $assembly_fh;
+
+    die "Assembly FASTA '$assembly_fasta' contains no FASTA records\n"
+        unless keys %records;
+    die "Assembly FASTA '$assembly_fasta' contains no nucleotide sequence\n"
+        unless grep { length $_ } values %records;
+    return \%records;
+}
+
+sub reverseComplement {
+    my ($sequence) = @_;
+    my $reverse_complement = reverse($sequence);
+    $reverse_complement =~ tr/ATGCatgc/TACGtacg/;
+    return $reverse_complement;
+}
+
+sub extractAssemblyInterval {
+    my ($assembly_records, $contig_id, $start, $end, $reverse) = @_;
+    my $contig = $assembly_records->{$contig_id};
+    die "BLAST matched contig '$contig_id', but it is absent from the assembly FASTA\n"
+        unless defined $contig;
+
+    my $contig_length = length($contig);
+    # bedtools getfasta skips, rather than truncates, an interval outside the
+    # contig. Keep that behaviour so partial boundary hits remain NF.
+    return '' if $start < 0 || $end < $start || $start >= $contig_length || $end > $contig_length;
+    my $sequence = substr($contig, $start, $end - $start);
+    $sequence = reverseComplement($sequence) if $reverse;
+
+    my $header = ">$contig_id:$start-$end";
+    # The historical reverse-strand bedtools path returned no final newline.
+    return $reverse ? "$header\n$sequence" : "$header\n$sequence\n";
+}
+
 sub extractTargetFragment {
-    my ($assembly_fasta, $query_length, $pid_threshold, $coverage_threshold) = @_;
+    my ($assembly_records, $query_length, $pid_threshold, $coverage_threshold) = @_;
     print STDERR "Extracting target fragment\n";
 
-    system("blastn -db TEMP_nucl_blast_db -query TEMP_query_sequence.fna -outfmt 6 -word_size 7 -out TEMP_assembly-vs-query_blast.txt");
-    my $bestHit = `cat TEMP_assembly-vs-query_blast.txt | sort -k12,12 -nr -k3,3 -k4,4 | head -n 1`;
-    my @bestArray = split('\t', $bestHit);
+    my $blast_status = system(
+        "blastn", "-db", "TEMP_nucl_blast_db", "-query", "TEMP_query_sequence.fna",
+        "-outfmt", "6", "-word_size", "7", "-out", "TEMP_assembly-vs-query_blast.txt"
+    );
+    die "blastn failed while identifying the PBP target\n" if $blast_status != 0;
+    my $bestHit = `sort -k12,12 -nr -k3,3 -k4,4 TEMP_assembly-vs-query_blast.txt | head -n 1`;
+    return '' unless $bestHit =~ /\S/;
+    my @bestArray = split(/\t/, $bestHit);
     my $best_name = $bestArray[1];
     my $best_identity = $bestArray[2];
     my $best_len = $bestArray[3];
@@ -178,35 +234,15 @@ sub extractTargetFragment {
 
     if ($best_identity >= $pid_threshold && $frag_length >= $coverage_threshold) {
         if ($bestArray[8] < $bestArray[9]) {
-            #my $frag_start = $bestArray[8] - 1;
             my $blast_endDiff = $query_length - $bestArray[7];
             my $frag_start = $bestArray[8] - $bestArray[6];
             my $frag_end = $blast_endDiff + $bestArray[9];
-            open(my $fh, '>', 'TEMP_frwd_extract.bed') or die "Could not open file 'TEMP_frwd_extract.bed' $!";
-            print $fh "$best_name\t$frag_start\t$frag_end\n";
-            close $fh;
-            my $extract_frag_frwd = `bedtools getfasta -fi $assembly_fasta -bed TEMP_frwd_extract.bed -fo stdout`;
-
-            return $extract_frag_frwd;
+            return extractAssemblyInterval($assembly_records, $best_name, $frag_start, $frag_end, 0);
         } elsif ($bestArray[9] < $bestArray[8]) {
-            #my $query_extract = $query_strt - 500;
             my $blast_endDiff = $query_length - $bestArray[7];
             my $frag_start = $bestArray[8] + $bestArray[6] - 1;
             my $frag_end = $bestArray[9] - $blast_endDiff - 1;
-            open(my $fh, '>', 'TEMP_rev_extract.bed');
-            print $fh "$best_name\t$frag_end\t$frag_start\n";
-            close $fh;
-
-            my $extract_frag_rev = `bedtools getfasta -tab -fi $assembly_fasta -bed TEMP_rev_extract.bed -fo stdout`;
-            if ($extract_frag_rev) {
-                #print STDERR "extract frag is:\n$extract_frag_rev\n";
-                my @rev_frag_array = split('\t', $extract_frag_rev);
-                my $rev_comp_frag = reverse($rev_frag_array[1]);
-                $rev_comp_frag =~ tr/ATGCatgc/TACGtacg/;
-                return ">$rev_frag_array[0]$rev_comp_frag";
-            } else {
-                return '';
-            }
+            return extractAssemblyInterval($assembly_records, $best_name, $frag_end, $frag_start, 1);
         }
     } else {
         return '';
@@ -214,12 +250,18 @@ sub extractTargetFragment {
 
 }
 
+sub main {
 my ($help, $fasta, $query, $outDir, $length_threshold, $identity_threshold) = checkOptions(@ARGV);
+
+my $assembly_records = readAssemblyFasta($fasta);
 
 chdir "$outDir";
 
 print STDERR "Create a blast database using the assembled contigs.\n";
-system("makeblastdb -in $fasta -dbtype nucl -out TEMP_nucl_blast_db");
+my $makeblastdb_status = system(
+    "makeblastdb", "-in", $fasta, "-dbtype", "nucl", "-out", "TEMP_nucl_blast_db"
+);
+die "makeblastdb failed for assembly FASTA '$fasta'\n" if $makeblastdb_status != 0;
 
 ###Blast each sequence given in the query fasta file against the blast nucleotide database.###
 my @query_names = @{&extractIDsFromFasta($query)};
@@ -240,7 +282,7 @@ foreach my $query_name (@query_names) {
     print $qOUT $query_seq;
     close $qOUT;
 
-    my $fragment_fasta_str = extractTargetFragment($fasta, $query_length, $identity_threshold, $length_threshold);
+    my $fragment_fasta_str = extractTargetFragment($assembly_records, $query_length, $identity_threshold, $length_threshold);
 
     if (defined $fragment_fasta_str && 0 != length($fragment_fasta_str)) {
         print $exOUT "$fragment_fasta_str";
@@ -252,3 +294,7 @@ foreach my $query_name (@query_names) {
     close $exOUT;
     print STDERR "Wrote $extract_out";
 }
+
+}
+
+main() unless caller;

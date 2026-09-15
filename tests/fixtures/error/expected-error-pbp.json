@@ -1,0 +1,20 @@
+{
+  "amx": "S",
+  "amxMic": "= 0.06",
+  "croMeningitis": "S",
+  "croMic": "<= 0.5",
+  "croNonMeningitis": "S",
+  "ctxMeningitis": "S",
+  "ctxMic": "<= 0.06",
+  "ctxNonMeningitis": "S",
+  "cxm": "S",
+  "cxmMic": "<= 0.5",
+  "mem": "S",
+  "memMic": "<= 0.06",
+  "pbp1a": "2",
+  "pbp2b": "ERROR",
+  "pbp2x": "0",
+  "penMeningitis": "S",
+  "penMic": "= 0.06",
+  "penNonMeningitis": "S"
+}

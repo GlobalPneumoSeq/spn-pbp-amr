@@ -1,0 +1,20 @@
+{
+  "amx": "NF",
+  "amxMic": "NF NF",
+  "croMeningitis": "NF",
+  "croMic": "NF NF",
+  "croNonMeningitis": "NF",
+  "ctxMeningitis": "NF",
+  "ctxMic": "NF NF",
+  "ctxNonMeningitis": "NF",
+  "cxm": "NF",
+  "cxmMic": "NF NF",
+  "mem": "NF",
+  "memMic": "NF NF",
+  "pbp1a": "NF",
+  "pbp2b": "NF",
+  "pbp2x": "NF",
+  "penMeningitis": "NF",
+  "penMic": "NF NF",
+  "penNonMeningitis": "NF"
+}
