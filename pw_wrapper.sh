@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-assembly=$1
+assembly=$(realpath -s "$1")
 allDB_dir="/predictor/SPN_Reference_DB"
 if [[ -n "${SPN_PBP_WORK_DIR:-}" ]]; then
     sample_out=$SPN_PBP_WORK_DIR
